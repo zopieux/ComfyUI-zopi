@@ -5,64 +5,61 @@ import nodes as comfyui_nodes
 import folder_paths
 
 
+class AnyType(str):
+
+    def __ne__(self, __value: object) -> bool:
+        return False
+
+
+any = AnyType("*")
+
+
 class EvalPython:
-    RETURN_TYPES = ("STRING", "INT", "FLOAT", "BOOL")
-    RETURN_NAMES = ("string", "int", "float", "bool")
-    FUNCTION = "eval_python"
+    RETURN_TYPES = (any,)
+    RETURN_NAMES = ("OUTPUT",)
+
     CATEGORY = "utils"
+    FUNCTION = "eval_python"
 
     @classmethod
     def INPUT_TYPES(s):
         return {
-                "required": {
-                        "expression": ("STRING", {
-                                "multiline": True,
-                                "default": "output = input",
-                                "title": "output = input",
-                        }),
-                },"optional": {
-                        "input": ("STRING", {"forceInput": False}),
-                }
+            "required": {
+                "expression": ("STRING", {
+                    "multiline": True,
+                    "default": "output = input",
+                    "tooltip": "Python script; you have access to 'input' and must set the value of 'output'.",
+                }),
+            },
+            "optional": {
+                "input": (any, {
+                    "forceInput": False,
+                    "tooltip": "Any input; may be None",
+                }),
+            }
         }
 
     def eval_python(self, expression, input=None):
         globals = {"input": input, "output": None}
         exec(expression, globals)
         output = globals.get("output", None)
-        try:
-            s = str(output)
-        except:
-            s = None
-        try:
-            i = int(output)
-        except:
-            i = None
-        try:
-            f = float(output)
-        except:
-            f = None
-        try:
-            b = bool(output)
-        except:
-            b = None
-        return (s, i, f, b)
+        return (output,)
 
 
 class LoadTensortRTAndCheckpoint:
     RETURN_TYPES = ("MODEL", "MODEL", "CLIP", "VAE", "STRING", "STRING", "STRING")
     RETURN_NAMES = ("TensorRT MODEL", "SD MODEL", "CLIP", "VAE", "TensorRT name", "SD name", "Model type")
+    OUTPUT_NODE = True
+
     CATEGORY = "loaders"
     FUNCTION = "load_unet"
-    OUTPUT_NODE = True
 
     _CKPT_DIR = "checkpoints"
     _TENSORRT_DIR = "tensorrt"
 
     @classmethod
     def INPUT_TYPES(cls):
-        return {
-            "required": {"unet_name": (folder_paths.get_filename_list(cls._TENSORRT_DIR), ),
-        }}
+        return {"required": {"unet_name": (folder_paths.get_filename_list(cls._TENSORRT_DIR),),}}
 
     def load_unet(self, unet_name):
         model_type = "sd1.x"
@@ -86,7 +83,9 @@ class LoadTensortRTAndCheckpoint:
         unet, = TensorRTLoader(unet_name, model_type)
 
         return {
-            "ui": {"texts": [ckpt_name, model_type]},
+            "ui": {
+                "texts": [ckpt_name, model_type]
+            },
             "result": (unet, ckpt, clip, vae, unet_name, ckpt_name, model_type),
         }
 
@@ -101,21 +100,16 @@ def hackily_get_node(name: str):
 def find_best_match_with_difflib(needle, haystack, cutoff=0.0):
     if not haystack:
         return None
-    if matches := difflib.get_close_matches(
-        word=needle,
-        possibilities=haystack,
-        n=1,
-        cutoff=cutoff
-    ):
+    if matches := difflib.get_close_matches(word=needle, possibilities=haystack, n=1, cutoff=cutoff):
         return matches[0]
 
 
 NODE_CLASS_MAPPINGS = {
-        "EvalPython": EvalPython,
-        "LoadTensortRTAndCheckpoint": LoadTensortRTAndCheckpoint,
+    "EvalPython": EvalPython,
+    "LoadTensortRTAndCheckpoint": LoadTensortRTAndCheckpoint,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
-        "EvalPython": "Eval Python",
-        "LoadTensortRTAndCheckpoint": "Load TensortRT + checkpoint + CLIP + VAE",
+    "EvalPython": "Eval Python",
+    "LoadTensortRTAndCheckpoint": "Load TensortRT + checkpoint + CLIP + VAE",
 }
 WEB_DIRECTORY = "web"
